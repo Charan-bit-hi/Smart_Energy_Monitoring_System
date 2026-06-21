@@ -1,0 +1,13 @@
+Smart Energy System Report
+Report ID,rpt_0b1750f8a6e6
+Organization,Apex Manufacturing Corp
+Period,Weekly
+Generated At,2026-06-21T10:12:34.979099Z
+
+SITE NAME,METER SERIAL,METER LABEL,STATUS,CURRENT LOAD (kW),ENERGY CONSUMED (kWh)
+Detroit Main Plant,MTR-DET-HVAC-01,Main Plant HVAC Meter,Active,22.57,2.16
+Detroit Main Plant,MTR-DET-ASM-02,Assembly Line B Power Meter,Active,37.31,3.77
+Chicago Distribution Center,MTR-CHI-LGT-01,Warehouse Lighting Meter,Active,8.51,0.87
+Detroit Main Plant,DET-KVR_Sg0T,Active,Active,0.0,0.0
+
+TOTALS,,,,68.39,6.8
