@@ -9,7 +9,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 
-const API_BASE = 'http://localhost:8091';
+const API_BASE = 'http://localhost:8090';
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
