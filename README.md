@@ -1,119 +1,82 @@
-# Apex Energy — Smart Energy Monitoring & Analytics System
+# Apex Energy — Smart Energy Monitoring System
 
-A full-stack platform for real-time monitoring, alerting, billing, analytics, and ML-based forecasting of electricity consumption across industrial sites, warehouses, and facilities.
+This is a small full-stack app for keeping an eye on electricity usage across different sites — think factory floors, warehouses, that kind of thing. It pulls in live readings from smart meters (or a simulator standing in for real ones), shows you what's going on in a dashboard, warns you when something looks off, works out what it's costing you, and even tries to guess what usage will look like tomorrow.
 
-![Status](https://img.shields.io/badge/status-prototype-blue) ![Backend](https://img.shields.io/badge/backend-FastAPI-009688) ![DB](https://img.shields.io/badge/database-MongoDB-47A248) ![Frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61DAFB)
+It's a working prototype, not a polished production app — there are a few rough edges noted near the bottom.
 
----
+## What it's built with
 
-## Overview
+The backend is **FastAPI** (Python), talking to a **MongoDB** database. Auth is handled with JWTs. The frontend is **React** (built with Vite), using Recharts for the graphs. There's also a little Python script that pretends to be a bunch of smart meters, so you can see the system actually doing something without needing real hardware.
 
-Apex Energy ingests live telemetry (voltage, current, power, cumulative energy) from smart meters or simulated IoT devices, stores it in MongoDB, and surfaces it through a React dashboard. It detects threshold breaches in real time, calculates electricity costs against configurable tariffs, runs peak-usage analytics, forecasts future load with a scikit-learn regression model, and generates downloadable PDF/Excel/CSV reports.
+Worth flagging: an earlier planning doc for this project sketched out a .NET + SQL Server stack, but what actually got built is the FastAPI/MongoDB/React combo described here. This README reflects the real thing.
 
-| Layer | Tech |
-|---|---|
-| Backend API | FastAPI (Python) |
-| Database | MongoDB (PyMongo) |
-| Auth | JWT (python-jose) + bcrypt password hashing |
-| ML Forecasting | scikit-learn (Linear Regression) + pandas/numpy |
-| Frontend | React 19 + Vite, Recharts, lucide-react icons |
-| IoT Simulation | Python script posting synthetic telemetry over HTTP |
+## What it actually does
 
----
+- **Logging in** — three accounts exist out of the box: an Admin, a Manager, and an Engineer, each seeing slightly different things.
+- **Meters** — you can register meters, see which ones are active, and each one gets its own security token so it can authenticate when it sends data.
+- **Dashboard** — shows current load, how much energy's been used, how many meters are online, and how many alerts are sitting unresolved, plus a chart of the last 24 hours.
+- **Alerts** — if a meter reports something outside normal range (too much current, voltage too high or low), it shows up here as a Warning or Critical, and someone can acknowledge it.
+- **Billing** — punch in a date range and it'll calculate the cost based on standard and peak-hour tariff rates, broken down per meter.
+- **Analytics** — shows you which hours of the day usage peaks, and which meters or sites are using the most energy.
+- **ML Forecast** — trains a simple regression model on a meter's history and tries to predict the next 24 hours of power draw, with a rough confidence score attached. If there's not enough history yet, it falls back to a generic baseline guess instead of pretending to be confident.
+- **Reports** — generate a daily/weekly/monthly summary as a PDF, Excel file, or CSV, and download it later.
 
-## Features
+When you start the backend for the first time, it automatically creates a demo company, two sites, three meters, two tariff rates, and the three demo logins — so there's no manual setup needed just to look around.
 
-- **Authentication & RBAC** — JWT login with three roles: `Admin`, `Manager`, `Engineer`, each with scoped permissions.
-- **Meter registry** — register/manage smart meters per site, each with a unique device token used to authenticate ingestion requests.
-- **Real-time ingestion** — `POST /api/readings` accepts voltage/current/power/energy payloads from meters or the simulator.
-- **Live dashboard** — active load, cumulative energy, meter status, and unresolved alert counts, plus a 24-hour power draw chart and per-site distribution breakdown.
-- **Alert engine** — flags overcurrent, over/under-voltage, and threshold breaches as `Warning` or `Critical`, with an acknowledge workflow.
-- **Tariff-based billing** — calculates cost over a custom date range using standard + peak-surcharge tariff rates, broken down per meter.
-- **Analytics** — daily peak-hour usage profile and top energy-consuming meters/sites over the last 7 days.
-- **ML load forecasting** — trains a per-meter Linear Regression model on historical readings (hour-of-day + day-of-week features) to predict the next 24 hours of power draw, with a confidence score; falls back to a simulated baseline profile when history is insufficient.
-- **Report generation** — exports Daily/Weekly/Monthly consumption + billing summaries as PDF, Excel, or CSV.
-- **Auto-seeded demo data** — on first run, the database seeds a demo organization (Apex Manufacturing Corp), two sites, three meters, two tariffs, and three demo users (Admin/Manager/Engineer).
-
----
-
-## Project Structure
+## How the project is laid out
 
 ```
 Smart_Energy_Monitoring_System/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py            # FastAPI app, CORS, router registration, startup/seed hook
-│   │   ├── config.py          # Env-driven config (Mongo URI, JWT secret, token expiry)
-│   │   ├── db.py              # MongoDB connection, indexes, demo data seeding
-│   │   ├── auth.py            # JWT issue/verify, password hashing, role-based dependency
-│   │   ├── ml/
-│   │   │   └── forecaster.py  # Linear Regression forecasting + simulated fallback
-│   │   └── routes/
-│   │       ├── auth.py        # /api/auth — login, refresh, profile
-│   │       ├── meters.py      # /api/meters — CRUD
-│   │       ├── readings.py    # /api/readings — ingest + fetch history
-│   │       ├── dashboard.py   # /api/dashboard — summary aggregates
-│   │       ├── alerts.py      # /api/alerts — list + acknowledge
-│   │       ├── cost.py        # /api/cost — tariff-based cost calculation
-│   │       ├── analytics.py   # /api/analytics — peak-usage, top-consumers
-│   │       ├── predictions.py # /api/predictions — ML forecast per meter
-│   │       └── reports.py     # /api/reports — generate + download
-│   ├── static/reports/        # Generated report files (PDF/XLSX/CSV)
-│   └── requirements.txt
+│   │   ├── main.py            # starts the API, wires up all the routes
+│   │   ├── config.py          # reads settings from environment variables
+│   │   ├── db.py              # connects to MongoDB, sets indexes, seeds demo data
+│   │   ├── auth.py            # handles logins, JWTs, password hashing, role checks
+│   │   ├── ml/forecaster.py   # the forecasting logic
+│   │   └── routes/            # one file per feature area (meters, alerts, billing, etc.)
+│   └── static/reports/        # where generated reports get saved
 ├── frontend/
-│   ├── src/
-│   │   ├── App.jsx            # Single-page app: all views (Dashboard, Meters, Alerts, Billing, Analytics, ML Forecast, Reports)
-│   │   ├── main.jsx
-│   │   └── index.css / App.css
-│   ├── package.json
-│   └── vite.config.js
+│   └── src/App.jsx            # basically the whole UI lives in this one file
 ├── simulator/
-│   └── simulator.py           # IoT meter simulator (posts synthetic telemetry every 5s)
-└── Smart_Energy_Monitoring_System.pdf   # Original project write-up
+│   └── simulator.py           # pretends to be smart meters sending live data
+└── Smart_Energy_Monitoring_System.pdf   # the original project write-up
 ```
 
----
+## Running it yourself
 
-## Getting Started
+You'll need Python 3.10+, Node 18+, and a MongoDB instance running somewhere (local is fine).
 
-### Prerequisites
-
-- Python 3.10+
-- Node.js 18+
-- A running MongoDB instance (local or Atlas)
-
-### 1. Backend setup
+**Backend:**
 
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
+source venv/bin/activate      # on Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Create a `.env` file in `backend/`:
+Then make a `.env` file in the `backend/` folder:
 
 ```env
 MONGODB_URI=mongodb://localhost:27017
 DATABASE_NAME=smart_energy_db
-JWT_SECRET_KEY=replace_with_a_long_random_secret
+JWT_SECRET_KEY=replace_with_something_long_and_random
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 ```
 
-Run the API:
+And start it up:
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8091 --reload
 ```
 
-> ⚠️ **Port note:** the frontend (`API_BASE` in `src/App.jsx`) and the simulator (`API_URL` in `simulator.py`) both target **port 8091**, but `main.py`'s `if __name__ == "__main__"` block defaults to **8090**. Run uvicorn explicitly with `--port 8091` (as above), or update all three to match.
+One thing to know: the code has a small inconsistency where `main.py` defaults to port 8090 if you run it directly, but the frontend and simulator are both hardcoded to talk to port 8091. So run uvicorn with `--port 8091` like above, or it won't connect.
 
-On first startup, the app connects to MongoDB, creates indexes, and seeds demo data automatically — no manual migration step needed.
+Once it's running, you can poke around the auto-generated API docs at `http://localhost:8091/docs`.
 
-Interactive API docs (Swagger UI) are available at `http://localhost:8091/docs` once running.
-
-### 2. Frontend setup
+**Frontend:**
 
 ```bash
 cd frontend
@@ -121,11 +84,9 @@ npm install
 npm run dev
 ```
 
-The Vite dev server will print a local URL (typically `http://localhost:5173`).
+It'll print a local address, usually `http://localhost:5173`.
 
-### 3. (Optional) IoT meter simulator
-
-To populate the dashboard with live data and trigger alerts:
+**Simulator (optional, but makes the dashboard actually interesting):**
 
 ```bash
 cd simulator
@@ -133,67 +94,34 @@ pip install requests
 python simulator.py
 ```
 
-The simulator posts readings for three seeded meters every 5 seconds, and periodically injects voltage/load anomalies to exercise the Alert Engine.
+This sends fake readings for the three demo meters every 5 seconds, and every so often throws in a deliberate voltage spike or overload so you can watch the Alert system catch it.
 
----
-
-## Demo Accounts
-
-Seeded automatically on first run:
+## Logging in
 
 | Role | Email | Password |
 |---|---|---|
-| Admin | `admin@apex.com` | `admin123` |
-| Manager | `manager@apex.com` | `manager123` |
-| Engineer | `engineer@apex.com` | `engineer123` |
+| Admin | admin@apex.com | admin123 |
+| Manager | manager@apex.com | manager123 |
+| Engineer | engineer@apex.com | engineer123 |
 
-*(Quick-access buttons for all three are available directly on the login screen.)*
+There are also quick-login buttons for all three right on the sign-in screen, so you don't have to type these out.
 
----
+## A few things I noticed that could use a fix
 
-## Seeded Demo Data
+I went through the screenshots alongside the actual code, and a few things stood out:
 
-- **Organization:** Apex Manufacturing Corp (Industrial)
-- **Sites:** Detroit Main Plant, Chicago Distribution Center
-- **Meters:** Main Plant HVAC Meter, Assembly Line B Power Meter, Warehouse Lighting Meter
-- **Tariffs:** Industrial Standard Rate ($0.12/kWh), Peak Hours Surcharge ($0.18/kWh, 14:00–18:00)
+- **The port mismatch mentioned above** — easy fix, just needs the default in `main.py` to match what everything else expects.
+- **A leftover test meter** shows up called `DET-KVR_Sg0T`, labeled just "Active" — it's showing up in the meters list, the billing breakdown, and skewing the analytics chart. Looks like test data that never got cleaned out of the seed.
+- **The forecast chart's x-axis shows "NaN:00"** instead of actual times — there's a date formatting bug in the frontend chart somewhere.
+- **The forecast confidence score is sitting at 10%**, which is pretty low — probably needs more historical readings before it's trustworthy, or the model could use better features.
+- **136 unresolved alerts** in the demo is a lot — either the simulator is injecting anomalies too aggressively for a clean demo, or acknowledged alerts aren't being excluded from that count properly.
 
----
+None of these are big problems, just things worth tidying up before this goes anywhere near real use.
 
-## API Reference (Summary)
+## Ideas for what's next
 
-| Module | Base Path | Key Endpoints |
-|---|---|---|
-| Auth | `/api/auth` | `POST /login`, `POST /login/json`, `POST /refresh`, `GET /profile` |
-| Meters | `/api/meters` | `GET /`, `POST /`, `GET /{meter_id}`, `PUT /{meter_id}`, `DELETE /{meter_id}` |
-| Readings | `/api/readings` | `POST /` (device token auth), `GET /{meter_id}` |
-| Dashboard | `/api/dashboard` | `GET /summary` |
-| Alerts | `/api/alerts` | `GET /`, `POST /{alert_id}/acknowledge` |
-| Cost | `/api/cost` | `GET /calculate` |
-| Analytics | `/api/analytics` | `GET /peak-usage`, `GET /top-consumers` |
-| Predictions | `/api/predictions` | `GET /{meter_id}?hours=24` |
-| Reports | `/api/reports` | `POST /generate`, `GET /{report_id}/download` |
-
-Full request/response schemas are auto-generated and browsable at `/docs` (Swagger) and `/redoc`.
-
----
-
-## Known Issues / Notes for Next Iteration
-
-These were visible from the current build (screenshots + code) and are worth fixing next:
-
-1. **Port mismatch** between `main.py`'s default (`8090`) and the frontend/simulator (`8091`) — standardize on one via the `.env`/config rather than a hardcoded default.
-2. **Stray seed/test meter** — a meter labeled `DET-KVR_Sg0T` with label `"Active"` appears in the Meters table and Billing breakdown; looks like leftover test data and should be cleaned from the seed or removed via the UI.
-3. **ML Forecast page** — the "Predicted Power Draw" chart axis shows `NaN:00` labels (a date/timestamp formatting bug in the frontend chart's x-axis), and the confidence score (10%) is quite low, suggesting the model needs more historical readings or better feature engineering before it's representative.
-4. **Alerts volume** — 136 unresolved alerts in the demo session suggests either the simulator's anomaly injection is too aggressive for a realistic demo, or acknowledged alerts aren't being filtered/cleared from the "Unresolved" count correctly.
-5. **Top 5 Energy Consumers chart** — only 3–4 bars render (one stray "Active" bar matches the stray meter above); worth re-checking the underlying aggregation once the seed data is cleaned up.
-
----
-
-## Roadmap Ideas
-
-- Containerize backend + MongoDB + frontend with Docker Compose for one-command startup.
-- Add automated tests around the Alert Engine thresholds and the cost calculation logic (`test_aggregate.py` exists as a start).
-- Move JWT secret and Mongo URI to a secrets manager before any real deployment.
-- Improve the forecasting model (more training history, additional features, or swap in a time-series-specific model) and fix the chart x-axis formatting.
-- Add pagination/filtering to the Alerts table now that volume is non-trivial.
+- Wrap it all in Docker Compose so it's a one-command startup instead of three separate terminals.
+- Add some real tests around the alert thresholds and cost math.
+- Get the JWT secret and Mongo connection string out of plaintext config before this touches anything real.
+- Feed the forecasting model more data and fix that chart bug.
+- Add pagination to the Alerts table now that it's clearly going to fill up fast.
